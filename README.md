@@ -1,5 +1,4 @@
-# Base Code for a Recycling Guidance Device 
-# (Raspberry Pi 5)
+# Base Code for a Recycling Guidance Device (Raspberry Pi 5)
 
 Concept: The system **recognizes waste and guides the user to the correct bin**, while also **monitoring the bin's fill level**.
 Since users sort the waste manually, **no servo motor or other motor is used**.
