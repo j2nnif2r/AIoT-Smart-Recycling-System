@@ -1,68 +1,186 @@
-# Base Code for a Recycling Guidance Device (Raspberry Pi 5)
+# AIoT Smart Recycling System
+**Gachon University · Introduction to IoT (IoT26) · Spring 2026**
 
-Concept: The system **recognizes waste and guides the user to the correct bin**, while also **monitoring the bin's fill level**.
-Since users sort the waste manually, **no servo motor or other motor is used**.
-Hardware: HC-SR04 ultrasonic fill-level sensor + I2C LCD 1602 (+ YOLO camera).
+---
 
-## 1. Setup (Raspberry Pi OS Bookworm)
+## Overview
+
+An ultrasonic sensor detects an approaching user → a language selection screen appears →
+the camera captures an image and YOLOv8 classifies the waste →
+the result (waste type + disposal instructions) is shown in the selected language on the HDMI display.
+While idle, an SHT30 sensor continuously monitors temperature and humidity.
+
+---
+
+## Overall Workflow
+
+```
+Idle (temperature & humidity displayed)
+   ↓ User detected (ultrasonic sensor < 50 cm)
+Language selection screen
+   ↓ User touches a language (English / 한국어 / 中文 / 日本語)
+Camera capture & YOLOv8 classification
+   ↓
+Result shown in the selected language (waste type + disposal guidance)
+   ↓ (after 5 seconds)
+Return to idle screen
+```
+
+| State | Screen content |
+|-------|-----------------|
+| IDLE | Temperature / humidity cards (refreshed every 30 s, English) |
+| LANG_SELECT | 2×2 language selection buttons (touch / click / number keys 1–4) |
+| ACTIVE | "Scanning..." → classification result (selected language) |
+
+> If no language is selected within 15 seconds on the language screen, the system automatically returns to the idle screen.
+
+---
+
+## Hardware Components
+
+| Component | Model | Connection |
+|-----------|-------|------------|
+| MCU | Raspberry Pi 5 | — |
+| Camera | Pi Camera Module 3 | CSI |
+| Distance sensor | HC-SR04 Ultrasonic | GPIO BCM 23 (TRIG), 24 (ECHO) |
+| Temperature/Humidity sensor | SHT30 | I2C (SDA=GPIO2, SCL=GPIO3), address 0x44 |
+| Display | HDMI Touchscreen | HDMI + USB (touch) |
+
+---
+
+## Wiring Diagram
+
+```
+HC-SR04
+  VCC  -> 5V (Pin 2)
+  GND  -> GND (Pin 6)
+  TRIG -> GPIO 23 (Pin 16)
+  ECHO -> GPIO 24 (Pin 18)  <- Voltage divider required! (1kΩ + 1kΩ in series ≈ 2kΩ)
+
+SHT30 (I2C)
+  VCC -> 3.3V (Pin 1)
+  GND -> GND (Pin 9)
+  SCL -> GPIO 3 / SCL (Pin 5)
+  SDA -> GPIO 2 / SDA (Pin 3)
+
+HDMI Touchscreen
+  HDMI -> Pi HDMI port
+  USB  -> Touch input (registers as mouse clicks)
+```
+
+> **Caution**: The HC-SR04 ECHO pin outputs 5V, but the Pi GPIO only tolerates 3.3V.
+> A voltage divider (1kΩ + 1kΩ in series, with the GPIO connected at the midpoint) or a logic-level converter is required.
+
+---
+
+## Installation
 
 ```bash
-# Enable I2C: raspi-config -> Interface Options -> I2C -> Enable
+# 1. System packages
+sudo apt update
+sudo apt install -y python3-picamera2 python3-rpi-lgpio python3-libgpiod \
+                     fonts-noto-cjk swig i2c-tools
+
+# Enable I2C (raspi-config -> Interface Options -> I2C)
 sudo raspi-config
 
-# Check the LCD address (usually 0x27 or 0x3F)
-sudo apt install -y i2c-tools
-i2cdetect -y 1
+# 2. Python virtual environment (includes system packages)
+python3 -m venv venv --system-site-packages
+source venv/bin/activate
 
-# Install libraries (gpiozero/lgpio are usually installed by default)
-pip install -r requirements.txt --break-system-packages
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Verify SHT30 is detected on I2C (should show 0x44 or 0x45)
+sudo i2cdetect -y 1
 ```
 
-Enter the detected LCD address in `LCD_ADDRESS` inside `config.py`.
+---
 
-## 2. Pin Connection Summary (BCM)
-
-| Component | Pin | GPIO (Physical Pin) |
-|---|---|---|
-| HC-SR04 TRIG | TRIG_PIN | GPIO23 (16) |
-| HC-SR04 ECHO | ECHO_PIN | GPIO24 (18) — **through a 1k/2k voltage divider** |
-| LCD SDA / SCL | I2C | GPIO2 (3) / GPIO3 (5) |
-| Power | 5V / GND | Breadboard + / - rails |
-
-> Since no servo is used, the **servo (GPIO18) and External 5V block in the wiring diagram do not need to be connected.**
-
-## 3. Run
+## Running the System
 
 ```bash
-python3 main.py
+cd ~/Desktop/TeamFTermProject
+source venv/bin/activate
+python main.py
 ```
 
-- Normal screen: fill level (%) + `Compress needed!` when it exceeds 80%
-- When waste is recognized: guides the user to the correct bin, such as `Detected:Plastic` / `-> Plastic bin`.
-- Even without an LCD, the same information is printed to the console so the operation can be checked.
+- Press `ESC` or `Ctrl+C` to exit.
+- On first run (with internet access), the YOLOv8n model weights (`yolov8n.pt`) are downloaded automatically.
 
-## 4. Calibration (Important)
+---
 
-Measure the actual sensor-to-surface distance when the bin is empty and when it is full, then enter the values in `config.py`.
+## Project Structure
 
-```python
-EMPTY_DISTANCE_CM = 30.0   # Empty bin: sensor -> bottom
-FULL_DISTANCE_CM  = 5.0    # Full bin: waste -> sensor
+```
+TeamFTermProject/
+├── main.py                  # Main loop (state machine)
+├── requirements.txt
+├── README.md
+├── models/
+│   └── waste_yolo.pt        # (optional) custom-trained model weights
+├── logs/
+│   ├── system.log           # System log
+│   └── env_log.csv          # Temperature/humidity history
+└── utils/
+    ├── __init__.py
+    ├── sensor_manager.py    # HC-SR04 + Pi Camera
+    ├── lcd_display.py        # pygame HDMI touch display (incl. language selection)
+    ├── translations.py       # Multilingual text (EN/KO/ZH/JA)
+    ├── waste_classifier.py   # YOLOv8 classifier
+    └── env_monitor.py        # SHT30 temperature/humidity monitor (I2C)
 ```
 
-## 5. Extensions
+---
 
-- **YOLO Recognition**: Complete `classify_frame()` in `camera_yolo.py`, then
-  modify `get_detected_category()` in `main.py` so that it calls the function.
-  The LCD automatically displays guidance based on the returned category.
-  The bin names can be changed in `CATEGORY_GUIDE` inside `config.py`.
-- **Multiple Bins**: Create one `FillSensor` for each bin (each with its own TRIG/ECHO pins +
-  voltage-divider resistors), store them in a list, and display the fill level of each bin in a loop.
-- **Mobile Dashboard**: Send the value from `percent()` to a server using MQTT or HTTP
-  and connect it to the previously designed fill-level monitoring screen.
+## Multilingual Support
+
+`utils/translations.py` defines UI text and disposal guidance for four languages.
+
+| Code | Language |
+|------|----------|
+| en | English |
+| ko | Korean |
+| zh | Chinese |
+| ja | Japanese |
+
+Once a language button is touched (or clicked) on the selection screen, every subsequent screen
+(scanning, classification result, disposal guidance) is displayed in that language.
+Number keys `1`/`2`/`3`/`4` can also be used for testing (English/Korean/Chinese/Japanese, respectively).
+
+---
+
+## YOLO Model Notes
+
+- **Default**: YOLOv8n (COCO pretrained) — downloads automatically, no training required
+- **Custom**: place a fine-tuned `models/waste_yolo.pt` and it will be loaded automatically
+
+Example custom training command:
+```bash
+yolo train data=waste.yaml model=yolov8n.pt epochs=50 imgsz=640
+```
+
+---
+
+## Evaluation Criteria Mapping
+
+| Item | Implementation |
+|------|----------------|
+| System Core Integration (40%) | Pi 5 + HC-SR04 + SHT30 + Pi Camera + HDMI touch display, all integrated |
+| AI Model Performance (25%) | YOLOv8 — Bottle / Can / Paper + 3 additional categories |
+| Technical Documentation (15%) | README + code comments + env_log.csv |
+| Presentation & Demo (15%) | Immediate demo via `python main.py` |
+| Bonus: Advanced Ideas (+25%) | 4-language UI (English/Korean/Chinese/Japanese) |
+
+---
 
 ## Troubleshooting
 
-- `lgpio`/permission error: Run `sudo usermod -aG gpio $USER`, then log in again.
-- Nothing appears on the LCD: Recheck the address with `i2cdetect -y 1` and adjust the contrast using the potentiometer on the back.
-- Distance values are unstable: Check the ECHO voltage-divider wiring and the sensor power supply (5V).
+| Symptom | Solution |
+|---------|----------|
+| `ModuleNotFoundError: No module named 'utils'` | `touch utils/__init__.py` |
+| `Cannot determine SOC peripheral base address` | Use gpiozero/lgpio instead of RPi.GPIO (`sudo apt install python3-rpi-lgpio`) |
+| `pygame.error: video system not initialized` | Make sure `os.environ["SDL_VIDEODRIVER"]="x11"` and `DISPLAY=":0"` are set |
+| Korean/Chinese/Japanese text shows as boxes | `sudo apt install -y fonts-noto-cjk` |
+| `no echo received` (ultrasonic sensor) | Check the ECHO pin voltage divider (1kΩ + 1kΩ) wiring |
+| `externally-managed-environment` (pip error) | Use `python3 -m venv venv --system-site-packages` then `source venv/bin/activate` |
