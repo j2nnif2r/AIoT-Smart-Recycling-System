@@ -1,340 +1,139 @@
 # AIoT Smart Recycling System
 
-An AIoT-based smart recycling assistant built with a Raspberry Pi 5. The system detects when a person approaches, allows the user to select a language, captures an image of the waste, classifies it with YOLO, and displays the correct disposal method in the selected language.
+AIoT-based Smart Recycling System for worldwide use — Gachon University, Introduction to IoT (IoT26), Spring 2026, Team F.
 
-## 1. Project Overview
+## Team
 
-The system operates in the following sequence:
+| Member | Role | Participation |
+| --- | --- | --- |
+| 김건 (202234859) | Code development / YOLO train | 33.3% |
+| 김채윤 (202434865) | Prompt Engineering / Hardware development | 33.3% |
+| 김현보 (202434751) | Hardware wiring / sensor integration / multilingual | 33.3% |
 
-```text
-Standby Screen
-    ↓
-Person Detected Within 20 cm
-    ↓
-Language Selection Screen
-    ↓
-Camera Capture and YOLO Classification
-    ↓
-Waste Type and Disposal Method Displayed
-    ↓
-Return to Standby Screen
-```
+## Deliverables
 
-During standby mode, the display shows:
+- **GitHub repository**: https://github.com/j2nnif2r/AIoT-Smart-Recycling-System
+- **Lookup web page (web app)**: https://iot-team-f-term-project.web.app
 
-- Current temperature
-- Current humidity
-- One recycling fact or recycling tip
+## Project Overview
 
-## 2. Main Features
+Using a Raspberry Pi 5 as the edge-computing hub, the system detects an approaching user, captures the waste item with a camera, classifies its type with YOLO, and displays the correct disposal guidance on a 7-inch LCD. During idle periods, it measures and logs the temperature and humidity around the bin to monitor sanitation.
 
-- Real-time temperature and humidity monitoring using the SHT30 sensor
-- Person detection using the HC-SR04 ultrasonic sensor
-- Touch-based language selection
-- Waste image capture using the Raspberry Pi Camera Module
-- Waste classification using a YOLO model
-- Disposal instructions in four languages
-- Automatic return to the standby screen after displaying the result
+On top of the basic requirements (sensor fusion / smart UI / environment monitoring), extended features were implemented, including multilingual guidance, touch interaction, carbon-reduction visualization, and cloud integration via QR code.
 
-## 3. Supported Languages
+## System Configuration
 
-The user can select one of the following languages:
+| Category | Parts / Technology |
+| --- | --- |
+| Core | Raspberry Pi 5 (RP1 I/O) |
+| Distance sensing | HC-SR04 ultrasonic sensor (TRIG GPIO23, ECHO GPIO24) |
+| Vision | Pi Camera (OV5647), libcamera / picamera2 |
+| Temp / Humidity | SHT30 (I2C, SDA GPIO2 / SCL GPIO3) |
+| Display | 7-inch capacitive touch LCD (pygame GUI) |
+| AI | YOLOv8n (ONNX) + onnxruntime |
+| Cloud | Firebase Firestore + Hosting, QR integration |
 
-- English
-- Korean
-- Chinese
-- Japanese
-
-## 4. Hardware Components
-
-- Raspberry Pi 5
-- Raspberry Pi Camera Module
-- HC-SR04 ultrasonic distance sensor
-- SHT30 temperature and humidity sensor
-- HDMI touchscreen display
-- Breadboard
-- Jumper wires
-- Resistors for the HC-SR04 ECHO voltage divider
-
-## 5. Hardware Connections
-
-### 5.1 HC-SR04 Ultrasonic Sensor
-
-| HC-SR04 Pin | Raspberry Pi 5 Connection |
-|---|---|
-| VCC | 3.3V |
-| TRIG | GPIO 23 |
-| ECHO | GPIO 24 |
-| GND | GND |
-
-> **Important:** The HC-SR04 ECHO pin outputs approximately 5V. Raspberry Pi GPIO pins support only 3.3V. A voltage divider must be used between the ECHO pin and GPIO 24.
-
-Example voltage divider:
-
-```text
-HC-SR04 ECHO ---- 1 kΩ resistor ---- GPIO 24
-                                    |
-                                  10 kΩ
-                                    |
-                                   GND
-```
-
-If a 2 kΩ resistor is not available, a suitable resistor combination may be used to create approximately the same ratio.
-
-### 5.2 SHT30 Temperature and Humidity Sensor
-
-| SHT30 Pin | Raspberry Pi 5 Connection |
-|---|---|
-| VIN / VCC | 3.3V |
-| GND | GND |
-| SDA | GPIO 2, physical pin 3 |
-| SCL | GPIO 3, physical pin 5 |
-
-The SHT30 normally uses the I2C address `0x44`. Some modules may use `0x45`.
-
-### 5.3 Raspberry Pi Camera Module
-
-Connect the camera module to a Raspberry Pi 5 CSI camera connector using the correct camera cable.
-
-The camera is controlled using the `picamera2` library.
-
-### 5.4 HDMI Touchscreen Display
-
-- Connect the display to the Raspberry Pi through HDMI.
-- Connect the touchscreen USB cable to the Raspberry Pi for touch input.
-- Configure the display resolution according to the screen model.
-
-## 6. Software Requirements
-
-Recommended operating system:
-
-- Raspberry Pi OS Bookworm, 64-bit
-
-Required software and Python libraries:
-
-- Python 3
-- Picamera2
-- Ultralytics YOLO
-- OpenCV
-- gpiozero
-- lgpio
-- smbus2
-- pygame
-- Adafruit
-- gpiod
-- numpy
-- onnxruntime
-- RPi.GPIO
-
-## 7. Suggested Project Structure
-
-```text
-AIoT-Smart-Recycling-System/
-├── main.py
-├── sensor_manager.py
-├── env_monitor.py
-├── waste_classifier.py
-├── camera_manager.py
-├── display_ui.py
-├── translations.py
-├── recycling_tips.py
-├── requirements.txt
-├── models/
-│   └── best.pt
-├── captured_images/
-└── README.md
-```
-
-### File Responsibilities
+## Code Structure
 
 | File | Description |
-|---|---|
-| `main.py` | Controls the complete system flow and screen transitions |
-| `sensor_manager.py` | Reads distance data from the HC-SR04 sensor |
-| `env_monitor.py` | Reads temperature and humidity from the SHT30 sensor |
-| `waste_classifier.py` | Runs YOLO inference and returns the detected waste class |
-| `camera_manager.py` | Controls image capture using Picamera2 |
-| `display_ui.py` | Displays the standby, language, camera, and result screens |
-| `translations.py` | Stores multilingual interface text and disposal instructions |
-| `recycling_tips.py` | Stores short recycling facts for the standby screen |
+| --- | --- |
+| `main.py` | State flow control |
+| `sensor_manager.py` | Ultrasonic & camera handling |
+| `env_monitor.py` | SHT30 temperature/humidity monitoring |
+| `waste_classifier.py` | YOLO ONNX-based waste classification |
+| `lcd_display.py` | GUI (pygame) |
+| `cloud_uploader.py` | Firestore upload & QR code generation |
 
-## 8. System Operation
+## Core: Troubleshooting Process
 
-### 8.1 Standby Mode
+The core value of this project lies in the process of diagnosing and resolving problems at the hardware, platform, model, and environment levels.
 
-The default screen displays:
+### 1. Ultrasonic Sensor Circuit Design — ECHO Voltage Divider
 
-- Current temperature
-- Current humidity
-- A recycling fact
-- A message such as `Please approach the device`
+- **Symptom**: Unstable GPIO input and abnormal distance values during HC-SR04 wiring.
+- **Cause**: The HC-SR04 ECHO pin outputs 5V, but the Raspberry Pi GPIO only tolerates 3.3V.
+- **Solution**: Designed a resistor voltage divider (R1 on ECHO side, R2 on GND side) so the divider node connects to GPIO24, stepping 5V down to ~3.3V (Vout = Vin × R2 / (R1 + R2)). TRIG connects directly to GPIO23; all modules share a common ground.
+- **Result**: GPIO protected, distance measurement stabilized.
 
-Example recycling fact:
+### 2. Temp/Humidity Sensor — DHT11 Not Working on Raspberry Pi 5
 
-```text
-Recycling one aluminum can saves enough energy to run a television for several hours.
-```
+- **Symptom**: Kernel driver repeatedly returned `Only 0 signal edges detected`, even after re-wiring and replacing sensors.
+- **Cause**: The Pi 5's RP1 I/O controller is a structural change that prevents the legacy kernel driver from capturing the DHT's microsecond-level single-wire timing — a platform-level limitation.
+- **Solution**: Replaced DHT11 with the I2C-based SHT30 sensor, which is natively supported on the Pi 5.
 
-The SHT30 sensor should update the temperature and humidity values at regular intervals.
+### 3. SHT30 I2C Address Mismatch
 
-### 8.2 Person Detection
+- **Symptom**: `No I2C device at address: 0x44`.
+- **Cause**: `i2cdetect -y 1` showed the device at `0x45` because the ADDR pin was tied to VDD.
+- **Solution**: Explicitly specified `SHT31D(i2c, address=0x45)`.
+- **Result**: Temperature/humidity readings restored; implemented 10-second CSV logging plus a 1-minute average display.
 
-The HC-SR04 continuously measures the distance in front of the device.
+### 4. Camera Image Color Inversion (BGR/RGB)
 
-A person is detected when:
+- **Symptom**: Captured photos displayed with inverted colors on the LCD.
+- **Cause**: Color conversion was applied twice — at capture and at display — swapping channels.
+- **Solution**: Standardized capture to return raw RGB without conversion, applying BGR/RGB conversion only immediately before YOLO input.
 
-```text
-Distance < 20 cm
-```
+### 5. YOLO Classification Accuracy (Biggest Challenge)
 
-To reduce false detection, the program may require two or three consecutive measurements below 20 cm before changing screens.
+1. **General model limitation**: COCO-pretrained yolov8n misclassified bottles as food (no recycling-specific classes). → Fine-tuned yolov8n on a Roboflow recycling dataset and exported to ONNX.
+2. **SD-card capacity constraint**: Installing `ultralytics` with PyTorch consumed too much space. → Re-implemented inference using onnxruntime only (manual preprocessing, NMS, box decoding), with class names managed in `class_names.txt`.
+3. **Low confidence (30–50%) due to color order**: A redundant BGR→RGB conversion was applied to already-RGB camera output. → Removed the extra conversion, raising confidence.
+4. **Over-granular classes**: Training on 42 classes produced very low mAP. → Remapped labels into 5 categories (plastic / glass / can / paper / general) and retrained, raising mAP50 to ~0.71.
+5. **Data imbalance**: Per-class instance counts — plastic 3564, glass 1212, can 4605, paper 1920, general 5236. Glass recognition remained poor despite augmentation attempts; acknowledged as a limitation due to time constraints.
 
-### 8.3 Language Selection
+### 6. Runtime Environment Issues
 
-When a person is detected, the touchscreen displays four buttons:
+- **Symptom**: System ran in `simulation mode` despite a valid model file.
+- **Cause**: The required library was installed outside the active venv.
+- **Solution**: Reinstalled within the activated venv and verified via an `import` check script.
+- **Lesson**: Established a principle of fixing interfaces (class set, input size, return format) and synchronizing call sites whenever return signatures change.
 
-```text
-English | 한국어 | 中文 | 日本語
-```
+## Advanced Features
 
-The selected language is stored and used for all following messages.
+### Multilingual + Touch GUI
 
-### 8.4 Camera and Waste Classification
+- Fullscreen pygame GUI on the 7-inch capacitive touch LCD with automatic resolution detection.
+- Supports four languages: English, Korean, Chinese, Japanese (Noto Sans CJK font).
+- State flow: user detected → language selection (touch) → number entry (touch keypad) → classification → continue/end (yes/no).
+- Automatic timeout-based termination when no selection is made.
 
-After language selection:
+### Carbon-Reduction Visualization
 
-1. The camera screen is displayed.
-2. The Raspberry Pi Camera captures an image.
-3. The image is passed to the YOLO model.
-4. YOLO predicts the waste category.
-5. The class name and confidence score are returned.
+- Aggregates per-item counts within a session and converts them via approximate per-category CO₂-saving values.
+- Displays a per-item bar chart plus total CO₂ saved on the summary screen, in the selected language.
 
-Example waste categories:
+### Cloud Integration (QR-based, Firebase)
 
-- Plastic
-- Paper
-- Glass
-- Can
-- General waste
+- **Architecture**: Raspberry Pi (service account) → Firestore storage → QR code (shown on LCD) → user's mobile web page lookup.
+- Uses the last 4 digits of a phone number as a key to accumulate records per user.
+- The web page (Firebase Hosting) shows per-session and cumulative CO₂, tree/car equivalents, and a date-wise cumulative chart.
+- **Troubleshooting**:
+  - Web page failed to load data due to (1) Firestore security rules blocking reads and (2) a `SyntaxError` from a duplicate `initializeApp` import — resolved separately.
+  - Confirmed that the service-account key bypasses security rules for writes, but reads require an explicit allow rule.
+  - Fixed QR code overlapping guidance text by adjusting summary-screen layout coordinates.
 
-The exact categories depend on the dataset used to train the lightweight YOLO model.
-("https://github.com/yoobright/yolo-onnx/raw/master/yolov8n.onnx")
+## Results and Limitations
 
-### 8.5 Result Screen
+### Achievements
 
-The result screen displays:
+- Integrated operation of Pi 5 + SHT30 + ultrasonic + camera + 7-inch LCD.
+- Real-time classification under SD-card constraints via lightweight ONNX inference.
+- Classification into 4 categories (+general), with mAP50 around 0.71.
+- Completed multilingual touch UI, carbon-reduction visualization, and QR-based cloud integration.
 
-- Detected waste type
-- Classification confidence
-- Correct disposal method
-- A message in the selected language
+### Limitations
 
-Example in English:
+- **Limited classification accuracy**: confidence often stays in the 30–50% range, and the same item may be classified differently across attempts.
+- **Data imbalance**: training data skewed (e.g., glass 1,212 vs. general 5,236), so glass is frequently missed or misclassified.
+- **Domain gap**: real-world accuracy is sensitive to shooting distance, background, lighting, and hand-holding, and drops below the validation mAP50 of ~0.71.
+- **Object-shape dependency**: items with atypical shapes (e.g., a short brown medicine bottle vs. common beverage bottles) are often not recognized.
+- **QR-based notification instead of true push**: since the last 4 phone digits cannot identify a device, real SMS/app push was replaced with QR-code scanning.
 
-```text
-Detected Waste: Plastic
-Disposal Method: Empty the bottle, rinse it, remove the cap, and place it in the plastic recycling bin.
-```
+## Future Improvements
 
-Example in Korean:
-
-```text
-분류 결과: 플라스틱
-배출 방법: 내용물을 비우고 깨끗이 헹군 뒤 뚜껑을 분리하여 플라스틱 수거함에 넣어주세요.
-```
-
-After a fixed display time, such as 5 to 10 seconds, the system returns to standby mode.
-
-## 9. Example State Flow
-
-The application can be implemented with the following states:
-
-```python
-STANDBY = "standby"
-LANGUAGE_SELECTION = "language_selection"
-CAMERA = "camera"
-RESULT = "result"
-```
-
-Example state transition logic:
-
-```text
-STANDBY
-  └─ If distance is below 20 cm → LANGUAGE_SELECTION
-
-LANGUAGE_SELECTION
-  └─ If a language button is touched → CAMERA
-
-CAMERA
-  └─ After capture and classification → RESULT
-
-RESULT
-  └─ After the result timer ends → STANDBY
-```
-
-## 10. Example Multilingual Disposal Data
-
-```python
-DISPOSAL_GUIDE = {
-    "plastic": {
-        "en": "Empty, rinse, remove the cap, and place it in the plastic recycling bin.",
-        "ko": "내용물을 비우고 헹군 뒤 뚜껑을 분리하여 플라스틱 수거함에 넣어주세요.",
-        "zh": "请倒空并清洗容器，取下瓶盖后投入塑料回收箱。",
-        "ja": "中身を空にして洗い、キャップを外してプラスチック回収箱に入れてください。"
-    }
-}
-```
-
-## 11. Example Recycling Tips
-
-```python
-RECYCLING_TIPS = [
-    "Recycling one glass bottle saves enough energy to light a bulb for ~4 hours.",
-    "Recycling one ton of paper can save about 17 trees.",
-    "Recycling plastic bottles can cut CO2 emissions by up to 80% vs. new plastic.",
-    "Correct sorting greatly reduces landfill waste and carbon emissions.",
-    "Recycling one aluminum can saves enough energy to light a bulb for ~4 hours."
-]
-```
-
-A random tip can be displayed each time the system returns to standby mode.
-
-## 12. Running the Program
-
-Activate the virtual environment:
-
-```bash
-cd AIoT-Smart-Recycling-System
-source venv/bin/activate
-```
-
-Run the main program:
-
-```bash
-python3 main.py
-```
-
-For fullscreen touchscreen operation, configure the UI program to open in fullscreen mode.
-
-## 13. Error Handling
-
-The application should handle the following cases:
-
-- SHT30 sensor not detected
-- Invalid ultrasonic sensor reading
-- Camera connection failure
-- YOLO model file not found
-- No waste detected
-- Multiple objects detected
-- Low-confidence classification
-
-Example messages:
-
-```text
-Detection Failed
-try again with one item
-```
-
-## 14. License
-
-This project is intended for educational and academic use.
+- Augment under-represented categories (especially glass), rebalance the dataset, and retrain with more epochs to improve confidence and consistency.
+- Collect and label images from the actual device camera (matching distance, angle, lighting, background) to reduce the domain gap.
+- Standardize the capture environment: fix camera distance/angle, control lighting, and guide users to place a single item in the scan zone without holding it.
+- Refine the category scheme (e.g., keep "can" focused on beverage cans) to sharpen decision boundaries between visually similar classes.
+- Tighten cloud security after the demo by adjusting Firestore rules to "allow read / deny write."
