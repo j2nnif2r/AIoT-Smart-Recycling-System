@@ -1,0 +1,19 @@
+# AIoT Smart Recycling System — Python Dependencies
+# 설치: pip install -r requirements.txt
+
+# AI / Vision
+ultralytics>=8.0.0
+opencv-python-headless>=4.8
+numpy>=1.24
+
+# Camera
+picamera2>=0.3.18        # Raspberry Pi OS 기본 포함
+
+# HDMI 디스플레이
+pygame>=2.5.0
+
+# DHT 센서
+adafruit-circuitpython-dht>=3.7
+
+# GPIO
+RPi.GPIO>=0.7.1
